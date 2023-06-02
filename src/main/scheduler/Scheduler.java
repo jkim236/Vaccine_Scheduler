@@ -120,25 +120,20 @@ public class Scheduler {
 
 
     private static void createCaregiver(String[] tokens) {
-        // create_caregiver <username> <password>
-        // check 1: the length for tokens need to be exactly 3 to include all information (with the operation name)
         if (tokens.length != 3) {
             System.out.println("Failed to create user.");
             return;
         }
         String username = tokens[1];
         String password = tokens[2];
-        // check 2: check if the username has been taken already
         if (usernameExistsCaregiver(username)) {
             System.out.println("Username taken, try again!");
             return;
         }
         byte[] salt = Util.generateSalt();
         byte[] hash = Util.generateHash(password, salt);
-        // create the caregiver
         try {
             Caregiver caregiver = new Caregiver.CaregiverBuilder(username, salt, hash).build(); 
-            // save to caregiver information to our database
             caregiver.saveToDB();
             System.out.println("Created user " + username);
         } catch (SQLException e) {
@@ -155,7 +150,6 @@ public class Scheduler {
             PreparedStatement statement = con.prepareStatement(selectUsername);
             statement.setString(1, username);
             ResultSet resultSet = statement.executeQuery();
-            // returns false if the cursor is not before the first record or if there are no rows in the ResultSet.
             return resultSet.isBeforeFirst();
         } catch (SQLException e) {
             System.out.println("Error occurred when checking username");
@@ -174,7 +168,6 @@ public class Scheduler {
             PreparedStatement statement = con.prepareStatement(selectUsername);
             statement.setString(1, username);
             ResultSet resultSet = statement.executeQuery();
-            // returns false if the cursor is not before the first record or if there are no rows in the ResultSet.
             return resultSet.isBeforeFirst();
         } catch (SQLException e) {
             System.out.println("Error occurred when checking username");
@@ -211,13 +204,11 @@ public class Scheduler {
 
 
     private static void loginCaregiver(String[] tokens) {
-        // login_caregiver <username> <password>
-        // check 1: if someone's already logged-in, they need to log out first
+
         if (currentCaregiver != null || currentPatient != null) {
             System.out.println("User already logged in.");
             return;
         }
-        // check 2: the length for tokens need to be exactly 3 to include all information (with the operation name)
         if (tokens.length != 3) {
             System.out.println("Login failed.");
             return;
@@ -232,7 +223,6 @@ public class Scheduler {
             System.out.println("Login failed.");
             e.printStackTrace();
         }
-        // check if the login was successful
         if (caregiver == null) {
             System.out.println("Login failed.");
         } else {
@@ -299,7 +289,6 @@ public class Scheduler {
             PreparedStatement statement = con.prepareStatement(searchVaccine);
             ResultSet resultSet = statement.executeQuery();
 
-            // Print results
             while (resultSet.next()) {
                 String vaccineName = resultSet.getString("name");
                 int availableDoses = resultSet.getInt("quantity");
@@ -331,7 +320,6 @@ public class Scheduler {
             return;
         }
 
-        // Convert input string to date
         Date date;
         try {
             date = Date.valueOf(tokens[1]);
@@ -340,15 +328,12 @@ public class Scheduler {
             return;
         }
 
-        // Get vaccine name
         String vaccineName = tokens[2];
 
-        // Initialize connection to the database
         ConnectionManager cm = new ConnectionManager();
         Connection con = cm.createConnection();
 
         try {
-            // Check if enough doses are available
             String checkDoses = "SELECT quantity, vaccineId FROM Vaccine WHERE name = ? AND quantity > 0";
             PreparedStatement checkDosesStatement = con.prepareStatement(checkDoses);
             checkDosesStatement.setString(1, vaccineName);
@@ -361,7 +346,6 @@ public class Scheduler {
 
             int vaccineId = resultSet.getInt("vaccineId");
 
-            // Search for available caregivers on this date
             String searchSchedule = "SELECT TOP 1 c.username, c.caregiverId, a.isAvailable " +
                     "FROM Caregiver c JOIN Availabilities a ON c.username = a.username " +
                     "WHERE a.dateAvailable = ? AND a.isAvailable = 1 " +
@@ -380,7 +364,6 @@ public class Scheduler {
             String caregiverUsername = resultSet.getString("username");
             int caregiverId = resultSet.getInt("caregiverId");
 
-            // Insert new appointment.
             String createAppointment = "INSERT INTO VaccineAppointment(patientId, date, caregiverId, vaccineId) VALUES (?, ?, ?, ?)";
             PreparedStatement createStatement = con.prepareStatement(createAppointment, Statement.RETURN_GENERATED_KEYS);
             createStatement.setInt(1, currentPatient.getPatientIdFromCredentials());
@@ -389,13 +372,11 @@ public class Scheduler {
             createStatement.setInt(4, vaccineId);
             createStatement.executeUpdate();
 
-            // Fetch the generated appointmentId.
             ResultSet generatedKeys = createStatement.getGeneratedKeys();
             if (generatedKeys.next()) {
                 int appointmentId = generatedKeys.getInt(1);
                 System.out.println("Appointment ID: " + appointmentId + ", Caregiver username: " + caregiverUsername);
 
-                // Update the Availabilities table to set isAvailable to 0 for this caregiver and date.
                 String updateAvailability = "UPDATE Availabilities SET isAvailable = 0 WHERE username = ? AND dateAvailable = ?";
                 PreparedStatement updateStatement = con.prepareStatement(updateAvailability);
                 updateStatement.setString(1, caregiverUsername);
@@ -415,13 +396,11 @@ public class Scheduler {
 
 
     private static void uploadAvailability(String[] tokens) {
-        // upload_availability <date>
-        // check 1: check if the current logged-in user is a caregiver
+
         if (currentCaregiver == null) {
             System.out.println("Please login as a caregiver first!");
             return;
         }
-        // check 2: the length for tokens need to be exactly 2 to include all information (with the operation name)
         if (tokens.length != 2) {
             System.out.println("Please try again!");
             return;
@@ -450,7 +429,6 @@ public class Scheduler {
             return;
         }
 
-        // Get appointment id from input
         int appointmentId;
         try {
             appointmentId = Integer.parseInt(tokens[1]);
@@ -459,12 +437,10 @@ public class Scheduler {
             return;
         }
 
-        // Initialize connection to the database
         ConnectionManager cm = new ConnectionManager();
         Connection con = cm.createConnection();
 
         try {
-            // Check if the appointment exists and belongs to the logged in user
             String checkAppointment = "SELECT va.*, c.username FROM VaccineAppointment va JOIN Caregiver c ON va.caregiverId = c.caregiverId WHERE va.appointmentId = ? AND (va.patientId = ? OR va.caregiverId = ?)";
             PreparedStatement checkStatement = con.prepareStatement(checkAppointment);
             checkStatement.setInt(1, appointmentId);
@@ -487,13 +463,11 @@ public class Scheduler {
             int caregiverId = resultSet.getInt("caregiverId");
             String caregiverUsername = resultSet.getString("username"); // retrieve the caregiver's username
 
-            // Delete the appointment
             String deleteAppointment = "DELETE FROM VaccineAppointment WHERE appointmentId = ?";
             PreparedStatement deleteStatement = con.prepareStatement(deleteAppointment);
             deleteStatement.setInt(1, appointmentId);
             deleteStatement.executeUpdate();
 
-            // Update the caregiver's availability
             String updateAvailability = "UPDATE Availabilities SET isAvailable = 1 WHERE username = ? AND dateAvailable = ?";
             PreparedStatement updateStatement = con.prepareStatement(updateAvailability);
             updateStatement.setString(1, caregiverUsername);
@@ -513,13 +487,10 @@ public class Scheduler {
 
 
     private static void addDoses(String[] tokens) {
-        // add_doses <vaccine> <number>
-        // check 1: check if the current logged-in user is a caregiver
         if (currentCaregiver == null) {
             System.out.println("Please login as a caregiver first!");
             return;
         }
-        // check 2: the length for tokens need to be exactly 3 to include all information (with the operation name)
         if (tokens.length != 3) {
             System.out.println("Please try again!");
             return;
@@ -533,8 +504,6 @@ public class Scheduler {
             System.out.println("Error occurred when adding doses");
             e.printStackTrace();
         }
-        // check 3: if getter returns null, it means that we need to create the vaccine and insert it into the Vaccines
-        //          table
         if (vaccine == null) {
             try {
                 vaccine = new Vaccine.VaccineBuilder(vaccineName, doses).build();

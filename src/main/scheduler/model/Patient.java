@@ -119,13 +119,12 @@ public class Patient {
                     byte[] hashFromDB = resultSet.getBytes("hash");
                     byte[] calculatedHash = Util.generateHash(password, saltFromDB);
                     if (Arrays.equals(hashFromDB, calculatedHash)) {
-                        // Authentication successful, create and return the patient
                         return new PatientBuilder(username, saltFromDB, hashFromDB).build();
                     }
                 }
-                return null; // No patient found with these credentials
+                return null;
             } catch (SQLException e) {
-                throw new SQLException(e.getMessage()); // Preserve the original exception
+                throw new SQLException(e.getMessage());
             } finally {
                 cm.closeConnection();
             }
